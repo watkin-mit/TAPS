@@ -1,6 +1,6 @@
 Tool for Air Pollution Scenarios (TAPS)
 Version 1.0
-Last updated: 08 April 2022
+Last updated: 12 April 2022
 
 Contact: Will Atkinson (watkin@mit.edu)
 Alternative Contacts: Noelle E. Selin (selin@mit.edu), Sebastian Eastham (seastham@mit.edu)
