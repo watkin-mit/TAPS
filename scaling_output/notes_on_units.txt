@@ -1,0 +1,20 @@
+Units in files:
+
+em_CEDS.csv, em_GFED.csv, Emissions_components.csv (Inventory): 
+Tg of emissions. OC, BC, and NMVOC species are expressed as Tg C. 
+
+Emissions_scenarios.csv: 
+Same, with NO expressed as Tg NO2 for comparison with McDuffie et al. (2020)
+
+fuel_proportions.csv: 
+Proportion (0 to 1) of sectoral emissions from each CEDS_GBD-MAPS fuel category.
+
+TableA1.csv: 
+Percent (0 to 100) of sectoral emissions from each CEDS_GBD-MAPS fuel category.
+
+GAINSEMFEFs.csv, GAINSNH3EFs.csv:
+Raw emission factors in kt emissions per production activity (in joules, tonnes, or quantities of livestock).
+Production activity units are given in GAINSEMF_sectoral_mapping.csv and CEDS_GAINSNH3_sectoral_mapping.csv.
+
+CEDS_scaling.csv, GFED_scaling.csv, GAINS_EFs_by_EPPA_region.csv, GAINSEF_Fits.csv, Emissions_components.csv (Activity and Intensity): 
+Relative trends (where a value of 1 reflects the base year value) for scaling.

@@ -1,0 +1,31 @@
+EPPA7,GAINS EMF,EMF30REGION,Caveats
+CAN,1 Canada,CANA_WHOL,
+USA,2 USA,USAM_WHOL,
+MEX,3 Mexico,MEXI_WHOL,
+LAM,4 Rest Central America,CEAM_REST,
+BRA,5 Brazil,BRAZ_WHOL,
+LAM,6 Rest South America,LAME_REST,
+AFR,7 Northern Africa,AFRI_NORT,
+AFR,8 Western Africa,AFRI_WEST,
+AFR,9 Eastern Africa,AFRI_EAST,
+AFR,10 South Africa,SAFR_WHOL,
+EUR,11 Western Europe,WEST_EURO,
+EUR,12 Central Europe,CENT_EURO,(Southern area: ROE)
+ROE,13 Turkey,TURK_WHOL,
+ROE,14 Ukraine+,UKRA_PLUS,
+ROE,15 Asia-Stan,ASIA_STAN,
+RUS,16 Russia+,RUSS_PLUS,(Countries near Turkey: ROE)
+MES,17 Middle East,MIDD_EAST,
+IND,18 India,INDI_WHOL,
+KOR,19 Korea,KORE_AALL,North Korea: ASI
+CHN,20 China+,CHIN_PLUS,Mongolia: REA. Taiwan: ASI
+ASI,21 Southeastern Asia,SOEA_ASIA,Vietnam/TimorLeste/Cambodia/Laos: REA
+IDZ,22 Indonesia+,INDO_PLUS,
+JPN,23 Japan,JAPA_WHOL,
+ANZ,24 Oceania,OCEA_WHOL,
+REA,25 Rest South Asia,SOUA_REST,
+,,,
+N/A,Global,,
+,,,
+,from https://models.pbl.nl/image/index.php/Region_classification_map and EPPA5 Technical Note (+EPPA6 publication for IDZ/KOR),,
+,*see cmip6_iam_model_region_mapping vs. EPPA7_region_map for a country-by-country assessment,,

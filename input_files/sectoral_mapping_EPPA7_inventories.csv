@@ -1,0 +1,22 @@
+﻿Inventory,Inventory_Code,Inventory_Name,EPPA7,SSP,Figure
+CEDS,agr,Agriculture,CROP,Agriculture,Agriculture
+CEDS,agr,Agriculture,FORS,Agriculture,Agriculture
+CEDS,agr,Agriculture,LIVE,Agriculture,Agriculture
+CEDS,ene,Energy,COAL,Energy Sector,Energy
+CEDS,ene,Energy,ELEC,Energy Sector,Energy
+CEDS,ene,Energy,GAS,Energy Sector,Energy
+CEDS,ene,Energy,ROIL,Energy Sector,Energy
+CEDS,ind,Industry,EINT,Industrial Sector,Industrial
+CEDS,ind,Industry,FOOD,Industrial Sector,Industrial
+CEDS,ind,Industry,OTHR,Industrial Sector,Industrial
+CEDS,rcoc,Commercial,SERV,Residential Commercial Other,Res|Com|Other
+CEDS,rcor,Residential,Population,Residential Commercial Other,Res|Com|Other
+CEDS,rcoo,Other,CROP,Residential Commercial Other,Res|Com|Other
+CEDS,rcoo,Other,FORS,Residential Commercial Other,Res|Com|Other
+CEDS,rcoo,Other,LIVE,Residential Commercial Other,Res|Com|Other
+CEDS,shp,Shipping,TRAN,International Shipping,Shipping
+CEDS,slv,Solvents,Population,Solvents,Solvents
+CEDS,road,Transport,TRAN,Transportation Sector,Transport
+CEDS,nrtr,Non-road transport,TRAN,Transportation Sector,Transport
+CEDS,wst,Waste,Population,Waste,Waste
+GFED,DM_AGRI,Agricultural Waste Burning,CROP,Agricultural Waste Burning,Ag Waste

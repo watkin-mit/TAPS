@@ -1,0 +1,4 @@
+EPPA_energy,EPPA_other,Figure,FAO,CMIP6,IAM
+out_paris1p5c_2030,Paris1p5C_2030,1.5$\degree$C,Toward Sustainability,SSP1-26,IAM15
+out_paris2c,Paris2C,2$\degree$C,Toward Sustainability,SSP4-34,IAM2
+out_parisforever_covid19,Parisforever_covid19,Paris,Business As Usual,SSP4-60,IAMpf
