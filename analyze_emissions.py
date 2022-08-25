@@ -7,7 +7,7 @@
 This script converts inventory and scaling inputs (from scale_emissions.py) to emissions trends.
 It imports SSP emissions trends for comparison, and analyzes them in figure exports as submitted to GMD. 
 
-Before running (for Fig. 3 and Fig. 4): 
+Before running (for Fig. 3-6): 
 Download stackedBarGraph.py into this directory from the following link: https://github.com/minillinim/stackedBarGraph
 
 '''
@@ -34,7 +34,7 @@ def df_to_dict(df): # num_cols = the number of category columns before the data
     
     df = df.fillna(0) # some places with zeroes were exported as blanks
     nested_dict = {}
-    for keys, v in df.groupby(list(df.columns[:i_yr]))[df.columns[:i_yr]]:
+    for keys, v in df.groupby(list(df.columns[:i_yr]))[df.columns]:
         d = nested_dict   # restart at root
         val = v.iloc[:,i_yr:].to_numpy().flatten() # extract the time series
         for k in keys:
@@ -48,6 +48,7 @@ def df_to_dict(df): # num_cols = the number of category columns before the data
     return nested_dict
 
 print('reading in the scaling files')
+
 
 # read in CEDS scaling file 
 CEDS_scaling_file = pandas.read_csv(os.path.join(output_dir,'CEDS_scaling.csv'))
@@ -64,7 +65,6 @@ em_CEDS = df_to_dict(em_CEDS_file)
 # read in GFED inventory data
 em_GFED_file = pandas.read_csv(os.path.join(output_dir,'em_GFED.csv'))
 em_GFED = df_to_dict(em_GFED_file)
-
 
 # %%
 
@@ -240,7 +240,7 @@ for i_act_scen, act_scen in enumerate(list_act_scen):
 # %%
 
 
-# prepare the SSP comparison data: CMIP6 scenarios for Figure 3-4 
+# prepare the SSP comparison data: CMIP6 scenarios for Figure 3-6 
 
 # read the file
 CMIP6_file = 'SSP_CMIP6_201811_solvents.csv' # new filename after shortening the "Solvents" sector name for processing
@@ -258,7 +258,7 @@ CMIP6yrs = [int(yr_col) for yr_col in CMIP6.columns if (str.isdigit(yr_col))]
 i_yr_CMIP6 = list(CMIP6.columns).index(str(CMIP6yrs[0]))
 
 
-# populate the sectoral data for Figure 3
+# populate the sectoral data for sectoral figures
 em_CMIP6_bysec = {} 
 for scen in scen_map_EPPA_CMIP6.values(): 
     CMIP6w_scen = CMIP6w[CMIP6w.SCENARIO==scen] #pick the scenario from the sheet
@@ -274,7 +274,7 @@ for scen in scen_map_EPPA_CMIP6.values():
                 em_CMIP6_bysec[scen][spc_cat][SSP_sec] = (CMIP6w_scen_spc[CMIP6w_scen_spc.VARIABLE ==
                                                                           (CMIP6spc[spc_cat] + '|' + SSP_sec)]).iloc[0,i_yr_CMIP6:]
         
-# sum the sectors for Figure 4
+# sum the sectors for regional figures
 em_CMIP6_totals = {}
 for i_scen, (act_scen,SSP_scen) in enumerate(scen_map_EPPA_CMIP6.items()): 
     em_CMIP6_totals[SSP_scen] = {}
@@ -314,7 +314,7 @@ for model in IAMw.MODEL.unique():
     m = IAMwrf[IAMwrf.MODEL == model]
     for row in m.itertuples():
         if row[-1] > 5.45 and row[-1] < 6.45:
-            IAMpf = IAMpf.append(IAMw[(IAMw.MODEL == row[1]) & (IAMw.SCENARIO == row[2])])
+            IAMpf = pandas.concat([IAMpf,(IAMw[(IAMw.MODEL == row[1]) & (IAMw.SCENARIO == row[2])]) ])
 
 # store the 3 dataframes in the same place to iterate in the figure (using eval(df))
 for act_scen,IAM_scen_df in scen_map_EPPA_IAM.items(): 
@@ -386,7 +386,7 @@ for i_act_scen, (act_scen,IAM_scen) in enumerate(scen_map_EPPA_IAM.items()): # 3
             #ax[0,i_s].set_title(spc_full[spc],fontsize=18) # alternate with full names
 
         # TAPS scenario range 
-        em_scen_totalsmin = em_scen_totals[list_act_scen[i_act_scen]][list_int_scen[-1]][spc].astype(None)
+        em_scen_totalsmin = em_scen_totals[list_act_scen[i_act_scen]][list_int_scen[1]][spc].astype(None)
         em_scen_totalsmax = em_scen_totals[list_act_scen[i_act_scen]][list_int_scen[0]][spc].astype(None) 
         ax[i_act_scen,i_s].fill_between(yr_list,em_scen_totalsmin,em_scen_totalsmax,alpha=0.2,color=TAPScolor)
 
@@ -395,9 +395,13 @@ for i_act_scen, (act_scen,IAM_scen) in enumerate(scen_map_EPPA_IAM.items()): # 3
         ax[i_act_scen,i_s].fill_between(SSPyrs,pathsndf.agg([min]).squeeze(),
                                     pathsndf.agg([max]).squeeze(),alpha=1,color=SSPcolor)
 
-        # TAPS scenario range -- plot again for a better visual 
+        # TAPS scenario range -- plot again with scenario lines for a better visual
         ax[i_act_scen,i_s].fill_between(yr_list,em_scen_totalsmin,em_scen_totalsmax,alpha=0.2,color=TAPScolor)
-
+        for i_int_scen in list_int_scen:
+            ax[i_act_scen,i_s].plot(yr_list,
+                                    em_scen_totals[list_act_scen[i_act_scen]][i_int_scen][spc].astype(None),
+                                    color=TAPScolor)
+        
         # after plotting, set y axis limit of zero
         ax[i_act_scen,i_s].set_ylim(ymin=0)
 
@@ -412,9 +416,7 @@ plt.savefig(fig_folder+fig_name+'.eps',dpi=300,bbox_inches='tight', format='eps'
 
 
 # %%
-
-
-# Figure 3
+# Figure 3-4 (sectors)
 
 # before running: download stackedBarGraph.py into this directory from the following link: https://github.com/minillinim/stackedBarGraph
 # as shown here: https://stackoverflow.com/questions/19060144/more-efficient-matplotlib-stacked-bar-chart-how-to-calculate-bottom-values
@@ -422,73 +424,81 @@ from matplotlib.ticker import FormatStrFormatter
 from stackedBarGraph import StackedBarGrapher
 SBG = StackedBarGrapher()
 
-d_labels = ['Base Year','','TAPS CLE','TAPS MFR','SSP Analog']
-label_text = ['\\n'.join(d_labels)]
+fig_name = ['f03','f04']
 d_colors = ['#d62728', '#2ca02c', '#1f77b4', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#7f7f7f']
-d_widths = [1.,0.5,1.,1.,1.]
+# MFR scenarios are equivalent at 2050, so we only plot them both for 2100 
+# dictionary for the things that change as a result: int_scen, d_labels, d_widths, Figure name
+bar_dict = { 
+    2050:[
+        list(list_int_scen[:-1]),
+        ['Base Year','','CLE Continued','MFR Continued','SSP Analog'],
+        [1.,0.5,1.,1.,1.]
+    ],
+    2100:[
+        list(list_int_scen),
+        ['Base Year','','CLE Continued','MFR Midcentury','MFR Continued','SSP Analog'],
+        [1.,0.5,1.,1.,1.,1.],
+    ]
+}
 
-fig,ax = plt.subplots(len(list_act_scen),len(spc_map_CEDS.keys()),sharex=True,figsize=(24,10)) 
+for i_fig, (yr,specs) in enumerate(bar_dict.items()):
+    fig,ax = plt.subplots(len(list_act_scen),len(spc_map_CEDS.keys()),sharex=True,figsize=(24,10)) 
 
-for i_act_scen, (act_scen,SSP_scen) in enumerate(scen_map_EPPA_CMIP6.items()): # 3 scenarios    
-    # make axis titles
-    ax[i_act_scen,0].set_ylabel('RF~EPPA ' + str(scen_map_EPPAfig[act_scen]),fontsize=20)
-    for i_s, (spc_SSP,spc_cat) in enumerate(spc_map_SSP.items()): # 7 species
-        if i_act_scen == 0:
-            ax[0,i_s].set_title(spc_formatted.get(spc_cat) + ' (Tg)',fontsize=20) 
-            #ax[0,i_s].set_title(spc_full[spc],fontsize=18) # alternate with full names
-            
-        # Now, set up a lists of lists for the stacked bars  
-        bars = []
-        for i_sec,SSP_sec in enumerate(sec_map_SSP.keys()): # 9 sectors that overlap with CEDS_GBD_MAPS
-            # for every sector, add that color to each of the "5" bar stacks in d_labels
-            bar = []
-            bar.append(em_scen_bySSPsec[act_scen][list_int_scen[0]][spc_cat][SSP_sec][yr_list.index(2014)])
-            bar.append(0.0)
-            bar.append(em_scen_bySSPsec[act_scen][list_int_scen[0]][spc_cat][SSP_sec][yr_list.index(2050)])
-            bar.append(em_scen_bySSPsec[act_scen][list_int_scen[-1]][spc_cat][SSP_sec][yr_list.index(2050)])
-            if len(em_CMIP6_bysec[SSP_scen][spc_SSP][SSP_sec]) > 1:
-                bar.append(em_CMIP6_bysec[SSP_scen][spc_SSP][SSP_sec]['2050'])
-            else:
+    for i_act_scen, (act_scen,SSP_scen) in enumerate(scen_map_EPPA_CMIP6.items()): # 3 scenarios    
+        # make axis titles
+        ax[i_act_scen,0].set_ylabel('RF~EPPA ' + str(scen_map_EPPAfig[act_scen]),fontsize=20)
+        for i_s, (spc_SSP,spc_cat) in enumerate(spc_map_SSP.items()): # 7 species
+            if i_act_scen == 0:
+                ax[0,i_s].set_title(spc_formatted.get(spc_cat) + ' (Tg)',fontsize=20) 
+                #ax[0,i_s].set_title(spc_full[spc],fontsize=18) # alternate with full names
+
+            # Now, set up a lists of lists for the stacked bars  
+            bars = []
+            for i_sec,SSP_sec in enumerate(sec_map_SSP.keys()): # 9 sectors that overlap with CEDS_GBD_MAPS
+                # for every sector, add that color to each of the bar stacks in bar_dict
+                bar = []
+                bar.append(em_scen_bySSPsec[act_scen][list_int_scen[0]][spc_cat][SSP_sec][0])
                 bar.append(0.0)
+                for i_int_scen in specs[0]:
+                    bar.append(em_scen_bySSPsec[act_scen][i_int_scen][spc_cat][SSP_sec][yr_list.index(yr)])
+                if len(em_CMIP6_bysec[SSP_scen][spc_SSP][SSP_sec]) > 1:
+                    bar.append(em_CMIP6_bysec[SSP_scen][spc_SSP][SSP_sec][str(yr)])
+                else:
+                    bar.append(0.0)
 
-            # then, get the bars ready and plot!
-            bars.append(bar)
-        d = np.array(bars).T 
-        SBG.stackedBarPlot(ax[i_act_scen,i_s],
-               d,
-               d_colors,
-               widths=d_widths, gap = 0.1
-              )
+                # then, get the bars ready and plot
+                bars.append(bar)
+            d = np.array(bars).T 
+            SBG.stackedBarPlot(ax[i_act_scen,i_s],
+                   d, d_colors, widths=specs[2], gap = 0.1
+                  )
 
-        # correct y-ticks from having too many decimals
-        ax[-1,-1].yaxis.set_major_formatter(FormatStrFormatter('%.f'))
+            # correct y-ticks from having too many decimals
+            ax[-1,-1].yaxis.set_major_formatter(FormatStrFormatter('%.f'))
 
-        # and set xlabels on the bottom row
-        if i_act_scen == len(list_act_scen)-1:
-            ax[-1,i_s].set_xticks(list(np.cumsum(d_widths)-1))
-            ax[-1,i_s].set_xticklabels(d_labels,rotation=90,fontsize=20)
+            # and set xlabels on the bottom row
+            if i_act_scen == len(list_act_scen)-1:
+                ax[-1,i_s].set_xticks(list(np.cumsum(specs[2])-1))
+                ax[-1,i_s].set_xticklabels(specs[1],rotation=90,fontsize=20)
 
-# add a legend
-import matplotlib.patches as mpatches
-legends = []      
-for i,(sec) in enumerate(sec_map_SSP.keys()):
-    legends.append(mpatches.Patch(color=d_colors[i], label=sec_names_SSP[sec]))
-ax[0,0].legend(bbox_to_anchor=(-0.35,1.2), ncol=len(sec_map_SSP.keys()),handles=legends,loc='lower left',fontsize=16.5) 
+    # add a legend
+    import matplotlib.patches as mpatches
+    legends = []      
+    for i,(sec) in enumerate(sec_map_SSP.keys()):
+        legends.append(mpatches.Patch(color=d_colors[i], label=sec_names_SSP[sec]))
+    ax[0,0].legend(bbox_to_anchor=(-0.35,1.2), ncol=len(sec_map_SSP.keys()),handles=legends,loc='lower left',fontsize=16.5) 
 
-# save 
-fig_folder = './Figures/'
-fig_name = 'f03'
-plt.savefig(fig_folder+fig_name+'.png',dpi=300,bbox_inches='tight', format='png')
-plt.savefig(fig_folder+fig_name+'.pdf',dpi=300,bbox_inches='tight', format='pdf')
-plt.savefig(fig_folder+fig_name+'.svg',dpi=300,bbox_inches='tight', format='svg')
-plt.savefig(fig_folder+fig_name+'.eps',dpi=300,bbox_inches='tight', format='eps')
-
+    # save 
+    fig_folder = './Figures/'
+    plt.savefig(fig_folder+fig_name[i_fig]+'.png',dpi=300,bbox_inches='tight', format='png')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.pdf',dpi=300,bbox_inches='tight', format='pdf')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.svg',dpi=300,bbox_inches='tight', format='svg')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.eps',dpi=300,bbox_inches='tight', format='eps')
 
 # %%
+# Figures 5-6 (regions)
 
-
-# Figure 4 
-
+fig_name = ['f05','f06']
 regbarnames = ['IND','REA','MES','CHN','ASI','JPN','IDZ','KOR','ANZ','AFR','BRA','LAM','USA','CAN','MEX','EUR','ROE','RUS']
 regbarcolors = ['tab:green','lime','darkgreen',
                'deepskyblue','blue','navy','cadetblue','darkturquoise',
@@ -498,76 +508,68 @@ regbarcolors = ['tab:green','lime','darkgreen',
                'silver','gray','black',
                 'oldlace'] # last one is for the SSP comparison 
 # W/S Asia greens, E Asia blues, ANZ brown, AFR yellow, S. Am purple/pink, N. Am red/orange/brown, Europe grays, SSP "oldlace" 
-
-d_labels = ['Base Year','','TAPS CLE','TAPS MFR','SSP Analog']
-label_text = ['\\n'.join(d_labels)]
-d_widths = [1.,0.5,1.,1.,1.]
 edge_colors = ([None] * len(regbarnames)) + ['black']
 
-fig,ax = plt.subplots(len(list_act_scen),len(spc_map_CEDS.keys()),sharex=True,figsize=(24,10)) 
+for i_fig, (yr,specs) in enumerate(bar_dict.items()):
+    fig,ax = plt.subplots(len(list_act_scen),len(spc_map_CEDS.keys()),sharex=True,figsize=(24,10)) 
 
-for i_act_scen, (act_scen,SSP_scen) in enumerate(scen_map_EPPA_CMIP6.items()): # 3 scenarios
-    # set axis labels
-    ax[i_act_scen,0].set_ylabel('RF~EPPA ' + str(scen_map_EPPAfig[act_scen]),fontsize=20)
-    for i_s, (spc_SSP,spc_cat) in enumerate(spc_map_SSP.items()): # 7 species  
-        if i_act_scen == 0:
-            ax[0,i_s].set_title(spc_formatted.get(spc_cat) + ' (Tg)',fontsize=20) 
-            #ax[0,i_s].set_title(spc_full[spc],fontsize=18) # alternate with full names
-            
-        # Now, set up a lists of lists for the stacked bars  
-        bars = []
-        for r,reg in enumerate(regbarnames): # EPP7 regions
-            # for every region, add that color to each of the "5" bar stacks in d_labels
+    for i_act_scen, (act_scen,SSP_scen) in enumerate(scen_map_EPPA_CMIP6.items()): # 3 scenarios
+        # set axis labels
+        ax[i_act_scen,0].set_ylabel('RF~EPPA ' + str(scen_map_EPPAfig[act_scen]),fontsize=20)
+        for i_s, (spc_SSP,spc_cat) in enumerate(spc_map_SSP.items()): # 7 species  
+            if i_act_scen == 0:
+                ax[0,i_s].set_title(spc_formatted.get(spc_cat) + ' (Tg)',fontsize=20) 
+                #ax[0,i_s].set_title(spc_full[spc],fontsize=18) # alternate with full names
+
+            # Now, set up a lists of lists for the stacked bars  
+            bars = []
+            for r,reg in enumerate(regbarnames): # EPP7 regions
+                # for every region, add that color to each of the bar stacks in bar_dict
+                bar = []
+                bar.append(em_scen_byreg[act_scen][list_int_scen[0]][spc_cat][reg][0])
+                bar.append(0.0)
+                for i_int_scen in specs[0]:
+                    bar.append(em_scen_byreg[act_scen][i_int_scen][spc_cat][reg][yr_list.index(yr)])
+                bar.append(0)
+                bars.append(bar)
+
+            # and then add the global SSP bars separately 
             bar = []
-            bar.append(em_scen_byreg[act_scen][list_int_scen[0]][spc_cat][reg][yr_list.index(2014)])
-            bar.append(0)
-            bar.append(em_scen_byreg[act_scen][list_int_scen[0]][spc_cat][reg][yr_list.index(2050)])
-            bar.append(em_scen_byreg[act_scen][list_int_scen[-1]][spc_cat][reg][yr_list.index(2050)])
-            bar.append(0)
+            for nonSSP_bar in specs[1][:-1]:
+                bar.append(0)
+            bar.append(em_CMIP6_totals[SSP_scen][spc_cat][str(yr)]) 
             bars.append(bar)
 
-        # and then add the global SSP bars separately 
-        bar = []
-        bar.append(0)
-        bar.append(0)
-        bar.append(0)
-        bar.append(0)
-        bar.append(em_CMIP6_totals[SSP_scen][spc_cat]['2050']) 
-        bars.append(bar)
+            # then, get the bars ready and plot!
+            d = np.array(bars).T
+            SBG.stackedBarPlot(ax[i_act_scen,i_s],
+                               d,
+                               regbarcolors,
+                               edgeCols=edge_colors,
+                               widths=specs[2], gap = 0.1,
+              )
 
-        # then, get the bars ready and plot!
-        d = np.array(bars).T
-        SBG.stackedBarPlot(ax[i_act_scen,i_s],
-                           d,
-                           regbarcolors,
-                           edgeCols=edge_colors,
-                           widths=d_widths, gap = 0.1,
-          )
+            # correct y-ticks from having too many decimals
+            ax[-1,-1].yaxis.set_major_formatter(FormatStrFormatter('%.f'))
 
-        # correct y-ticks from having too many decimals
-        ax[-1,-1].yaxis.set_major_formatter(FormatStrFormatter('%.f'))
+            # and set xlabels on the bottom row
+            if i_act_scen == len(list_act_scen)-1:
+                ax[-1,i_s].set_xticks(list(np.cumsum(specs[2])-1))
+                ax[-1,i_s].set_xticklabels(specs[1],rotation=90,fontsize=20)
 
-        # and set xlabels on the bottom row
-        if i_act_scen == len(list_act_scen)-1:
-            ax[-1,i_s].set_xticks(list(np.cumsum(d_widths)-1))
-            ax[-1,i_s].set_xticklabels(d_labels,rotation=90,fontsize=20)
+    # add a legend (with EPPA regions and "SSP" marker)
+    legends = []      
+    for i,reg_name in enumerate(regbarnames):
+        legends.append(mpatches.Patch(color=regbarcolors[i], label=reg_name))
+    legends.append(mpatches.Patch(color=regbarcolors[-1], label='SSP'))
+    ax[0,0].legend(bbox_to_anchor=(-0.35,1.2), ncol=len(regbarnames)+1,handles=legends,loc='lower left',fontsize=11) 
 
-# add a legend (with EPPA regions and "SSP" marker)
-import matplotlib.patches as mpatches
-legends = []      
-for i,reg_name in enumerate(regbarnames):
-    legends.append(mpatches.Patch(color=regbarcolors[i], label=reg_name))
-legends.append(mpatches.Patch(color=regbarcolors[-1], label='SSP'))
-ax[0,0].legend(bbox_to_anchor=(-0.35,1.2), ncol=len(regbarnames)+1,handles=legends,loc='lower left',fontsize=11) 
-
-# save
-fig_folder = './Figures/'
-fig_name = 'f04'
-plt.savefig(fig_folder+fig_name+'.png',dpi=300,bbox_inches='tight', format='png')
-plt.savefig(fig_folder+fig_name+'.pdf',dpi=300,bbox_inches='tight', format='pdf')
-plt.savefig(fig_folder+fig_name+'.svg',dpi=300,bbox_inches='tight', format='svg')
-plt.savefig(fig_folder+fig_name+'.eps',dpi=300,bbox_inches='tight', format='eps')
-
+    # save
+    fig_folder = './Figures/'
+    plt.savefig(fig_folder+fig_name[i_fig]+'.png',dpi=300,bbox_inches='tight', format='png')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.pdf',dpi=300,bbox_inches='tight', format='pdf')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.svg',dpi=300,bbox_inches='tight', format='svg')
+    plt.savefig(fig_folder+fig_name[i_fig]+'.eps',dpi=300,bbox_inches='tight', format='eps')
 
 # %%
 print('figures complete')

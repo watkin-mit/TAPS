@@ -223,6 +223,7 @@ spc_map_GAINS = dict(zip(spc_map_csv.dropna().EPPA,spc_map_csv.dropna().GAINS))
 spc_all_CEDS = list(spc_map_csv.CEDS.unique())
 spc_all_GFED = list(spc_map_csv.GFED.unique())
 spc_all_GFED.remove(np.nan)
+spc_all_cat  = 
 spc_GAINSNH3 = ['NH3']
 spc_GAINSEMF = [spc for spc in spc_map_csv.dropna().GAINS.unique() if spc not in spc_GAINSNH3]
 
@@ -554,10 +555,12 @@ for i_scen, scen in enumerate(act_scen):
                             if len(trend) > 0:
                                 # fill in zero values (which are not included in the spreadsheet)
                                 if len(trend) < len(yr_list):
+                                    yr_new = {}
                                     for yr in yr_list:
                                         if yr not in trend.index:
-                                            trend[yr] = 0.0        
-                                    trend = trend.astype(float).sort_index()
+                                            yr_new[yr] = 0.0 
+                                    # trend = trend.astype(float).sort_index() # fix test delete
+                                    trend = pandas.concat([trend,pandas.Series(yr_new)])
                                 # aggregates based on total energy (up-weighting higher-energy sectors)
                                 act_scaling[scen][inv_sector][reg][nf] += np.array(trend)
                  
@@ -1073,12 +1076,16 @@ for i_scen, scen in enumerate(int_scen):
 
 
 # %%
-
-
 #~# 2(c): Create intensity scenarios ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# in this implementation, we use full-century exponential fits to the 2000-2050 GAINS trends.
 # different scenarios could be created for different research questions. 
+
+# in this illustrative implementation, we explore 3 intensity scenarios: 
+# CLE Trend Continues: full-century exponential fit to GAINS' -2050 CLE data.
+# MFR Trend Continues: full-century exponential fit to GAINS' -2050 MFR data.
+# MFR Midcentury: MFR trend above, but hold emission factors constant after 2050. 
+int_scen_new = 'TAPS_MFR_Midcentury'
+int_scen_out = np.append(int_scen, [int_scen_new])
 
 # package documentation: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html
 # from least-squares: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.leastsq.html#scipy.optimize.leastsq
@@ -1090,18 +1097,19 @@ import scipy.optimize
 def monoExp(x, m, gt, b):
     return m * np.exp(-gt * x) + b
 
-#x values for exponential (where base year = 0). 
-gbyr = int(int_yrs[int_scen[0]][0]) # GAINS initial year
+#x values for exponential (where base year = year zero). 
+gbyr = int(int_yrs[int_scen[0]][0]) # initial year in GAINS data
+yrs_from_GAINS_start = np.array(yr_list) - gbyr   
 # full vector for CLE (2000,05,10,20,30,50); past years + MFR years for MFR (2000,05,10,15,30,50)
 xgcle = np.array(int_yrs[int_scen[0]]).astype(float)-gbyr
 xgmfr = np.array(int_yrs[int_scen[0]][0:4]+int_yrs[int_scen[1]]).astype(float)-gbyr
-# and append the 2014 = 1 value
+# and append the base year = 1 value
 xgcle = np.append(xgcle, (float(yr_list[0])-gbyr))
 xgmfr = np.append(xgmfr, (float(yr_list[0])-gbyr))
 xg = [xgcle,xgmfr]
 
 efs_to_fit = 0.0
-gainsex = {}  # dict for the exp fit parameters
+int_scaling = {}  # dict for the exp fit parameters
 gexfits = []  # export for the fits
 
 # prepare the EMF vs NH3 inputs so you can assign the right dictionaries
@@ -1110,17 +1118,21 @@ EF_EMF_aggdict['NH3'] = 'EF_NH3_agg'
 fuelmapdict = {spc_cat: 'sec_map_inv_GAINSfuels' for spc_cat in spc_GAINSEMF}
 fuelmapdict['NH3'] = 'sec_map_inv_GAINSNH3fuels'
 
-for i_scen, scen in enumerate(int_scen):
-    gainsex[scen] = {}
+for i_scen, scen in enumerate(int_scen): # CLE and MFR
+    int_scaling[scen] = {}
+    int_scaling[int_scen_new] = {}
     for s, spc_cat in enumerate(spc_GAINSEMF+spc_GAINSNH3):
-        gainsex[scen][spc_cat] = {}
+        int_scaling[scen][spc_cat] = {}
+        int_scaling[int_scen_new][spc_cat] = {}
         print('working on ',spc_cat)
         for reg,GAINSregs in reg_map_EPPAGAINSEMF.items(): 
-            gainsex[scen][spc_cat][reg] = {}
+            int_scaling[scen][spc_cat][reg] = {}
+            int_scaling[int_scen_new][spc_cat][reg] = {}
             inv_sec_last = ''
             for (inv_sector,fuel) in locals()[fuelmapdict[spc_cat]].keys():
                 if inv_sector != inv_sec_last:
-                    gainsex[scen][spc_cat][reg][inv_sector] = {}
+                    int_scaling[scen][spc_cat][reg][inv_sector] = {}
+                    int_scaling[int_scen_new][spc_cat][reg][inv_sector] = {}
                     inv_sec_last = inv_sector
 
                 # read in points: full vector for CLE (2000,05,10,15,20,30,50)                    
@@ -1128,8 +1140,10 @@ for i_scen, scen in enumerate(int_scen):
                     efs_to_fit = locals()[EF_EMF_aggdict[spc_cat]][scen][spc_cat][reg][inv_sector][fuel] 
                 # modified for MFR (CLE 2000,05,10,15 plus MFR30,50)
                 elif i_scen > 0:
-                    efs_to_fit = locals()[EF_EMF_aggdict[spc_cat]][int_scen[0]][spc_cat][reg][inv_sector][fuel][0:4].append(
-                        locals()[EF_EMF_aggdict[spc_cat]][scen][spc_cat][reg][inv_sector][fuel])
+                    efs_to_fit = pandas.concat([
+                        locals()[EF_EMF_aggdict[spc_cat]][int_scen[0]][spc_cat][reg][inv_sector][fuel][0:4],
+                        locals()[EF_EMF_aggdict[spc_cat]][scen][spc_cat][reg][inv_sector][fuel]
+                    ])
 
                 # (for re-runs during testing, we had to start fresh by removing the ref_yr additions)
                 if ref_yr in efs_to_fit.index:
@@ -1147,7 +1161,8 @@ for i_scen, scen in enumerate(int_scen):
 
                 # if it's a flat line at 1, don't fit an exponential 
                 if (round(max(efs_to_fit),5) == 1.0 and round(min(efs_to_fit),5) == 1.0):
-                    gainsex[scen][spc_cat][reg][inv_sector][fuel] = [1.0,1.0,1.0]
+                    int_scaling[scen][spc_cat][reg][inv_sector][fuel] = np.ones(len(yr_list))
+                    int_scaling[int_scen_new][spc_cat][reg][inv_sector][fuel] = np.ones(len(yr_list))
 
                 else:
                     yg = efs_to_fit 
@@ -1155,17 +1170,23 @@ for i_scen, scen in enumerate(int_scen):
                     params, cv = scipy.optimize.curve_fit(monoExp, xg[i_scen], yg, sigma=sigma,
                                                           bounds=([-np.inf,-np.inf,0], np.inf),maxfev=10000)
                     m, gt, b = params
-                    gainsex[scen][spc_cat][reg][inv_sector][fuel] = params
+                    int_scaling[scen][spc_cat][reg][inv_sector][fuel] = monoExp(yrs_from_GAINS_start,m,gt,b)
+                    if i_scen == 1:
+                        # and add MFR_Midcentury scenario
+                        int_scaling[int_scen_new][spc_cat][reg][inv_sector][fuel] = np.append(
+                            int_scaling[scen][spc_cat][reg][inv_sector][fuel][:yr_list.index(2050)+1],
+                            (np.ones(len(yr_list[yr_list.index(2050)+1:]))*
+                             int_scaling[scen][spc_cat][reg][inv_sector][fuel][yr_list.index(2050)])
+                        )
 
                     # calculate and store r^2, alongside the CLE+MFR years (not 2020 which is only in CLE) of pre-fit data
                     squaredDiffs = np.square(yg - monoExp(xg[i_scen], m, gt, b))
                     squaredDiffsFromMean = np.square(yg - np.mean(yg))
                     rsquared = 1 - np.sum(squaredDiffs) / np.sum(squaredDiffsFromMean)
                     gexfits.append([scen,spc_cat,reg,inv_sector,fuel,rsquared,m,gt,b]+
-                                  list(efs_to_fit.sort_index()[:5])+list(efs_to_fit.sort_index()[-2:]))   
-
+                                  list(efs_to_fit.sort_index()[:5])+list(efs_to_fit.sort_index()[-2:]))  
+                    
 print('seconds taken: ' + str(time.time() - t0))
-
 
 # %%
 
@@ -1219,13 +1240,8 @@ gexfitsdf.to_csv(gexfitspath, index = False, header=True)
 
 
 # %%
-
-
 #~# 3(b): Export scaling of CEDS inventory ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# years after initial GAINS year, used for implementing exponential fits
-yrs_from_GAINS_start = np.array(yr_list) - int(int_yrs[int_scen[0]][0])     
-
+  
 t0 = time.time()
 CEDS_scaling = {}        # the main scaling dict   
 components_export = []   # to export components for evaluation: inventory, plus activity scaling and intensity scaling (2030, 2050, 2100) 
@@ -1256,7 +1272,7 @@ for i_scen, scen in enumerate(act_scen):
                         fpct_inGAINS[spc_CEDS][reg][inv_sector] += fpct[spc_CEDS][sec][reg][fuel]
 
                 # then, loop through and scale GAINS intensity factors * EPPA activity factors
-                for i_int_scen in int_scen:
+                for i_int_scen in int_scen_out: 
                     CEDS_scaling[scen][spc_CEDS][reg][i_int_scen] = {}
                     inv_sec_last = ''
                     for (inv_sector,fuel) in locals()[fuelmapdict[spc_map_GAINS[spc_cat]]].keys():
@@ -1270,22 +1286,15 @@ for i_scen, scen in enumerate(act_scen):
                                 for f in fuels:
                                     fuelsum += em_CEDS[spc_CEDS][f][sec][reg]                            
 
-                            # extract the GAINS-based emissions intensity trends (int_scaling)
                             # use NH3 trends for agricultural sectors since GAINS only has ag. in NH3
                             if 'Agricult' in inv_sector: 
                                 spc_here = 'NH3'
                             else: 
                                 spc_here = spc_cat
-                                
-                            # calculate the intensity scaling trend
-                            m,gt,b = (gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][0], 
-                                      gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][1], 
-                                      gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][2])
-                            int_scaling = monoExp(yrs_from_GAINS_start, m,gt,b)
 
                             # if the fuels in GAINS cover this fuel, scale
                             if fpct_inGAINS[spc_CEDS][reg][inv_sector] > 0:
-                                scaling = (int_scaling 
+                                scaling = (int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel]
                                           * act_scaling[scen][inv_sector][reg][fuels.index(fuel)] 
                                           *  (1/fpct_inGAINS[spc_CEDS][reg][inv_sector]) # sector-fuel coverage adjustment
                                           )
@@ -1297,14 +1306,14 @@ for i_scen, scen in enumerate(act_scen):
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2030)],
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2050)],
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2100)],
-                                                int_scaling[yr_list.index(2030)], 
-                                                    int_scaling[yr_list.index(2050)], 
-                                                    int_scaling[yr_list.index(2100)]
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2030)], 
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2050)], 
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2100)]
                                                ])
 
                             # and if there's no scaling, add zero
                             else:
-                                CEDS_scaling[scen][spc_CEDS][reg][i_int_scen][inv_sector][fuel] = np.zeros(len(int_scaling))
+                                CEDS_scaling[scen][spc_CEDS][reg][i_int_scen][inv_sector][fuel] = np.zeros(len(yr_list))
                                 
                             # and finally, export the scaling
                             CEDS_scaling_export.append([scen,i_int_scen,spc_CEDS,reg,inv_sector,fuel]+
@@ -1318,9 +1327,8 @@ CEDS_scaling_df.to_csv(CEDS_scaling_path, index = False, header=True)
 
 print('seconds taken: ' + str(time.time() - t0))
 
-
 # %%
-
+# test new GFED inventory 
 
 #~# 3(c): Export scaling of GFED inventory ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1337,21 +1345,18 @@ for i_scen, scen in enumerate(act_scen):
             GFED_scaling[scen][spc_GFED] = {}  
             for reg in region_names:
                 GFED_scaling[scen][spc_GFED][reg] = {}
-                for i_int_scen in int_scen:
+                for i_int_scen in int_scen_out:
                     GFED_scaling[scen][spc_GFED][reg][i_int_scen] = {}
                     for (inv_sector, fuel) in locals()[fuelmapdict[spc_map_GAINS[spc_cat]]].keys():
                         if inv_sector in GFED_sec_dict.keys():
                             GFED_scaling[scen][spc_GFED][reg][i_int_scen][inv_sector] = {} 
                             
-                            # extract the GAINS-based intensity trends
                             # use GAINS NH3 trends for agricultural sectors since GAINS only has ag. in NH3
                             if 'Agricult' in inv_sector: 
                                 spc_here = 'NH3'
-                            m,gt,b = (gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][0], 
-                                        gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][1], 
-                                        gainsex[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][2])
-                            int_scaling = monoExp(yrs_from_GAINS_start, m,gt,b)
-                            scaling = (int_scaling *  act_scaling[scen][inv_sector][reg][fuels.index(fuel)])
+                            # and perform the scaling
+                            scaling = (int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel]
+                                       *  act_scaling[scen][inv_sector][reg][fuels.index(fuel)])
                             GFED_scaling[scen][spc_GFED][reg][i_int_scen][inv_sector][fuel] = scaling
                             
                             # export components: inventory, plus activity scaling and intensity scaling (2030, 2050, 2100)
@@ -1360,9 +1365,9 @@ for i_scen, scen in enumerate(act_scen):
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2030)],
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2050)],
                                                 act_scaling[scen][inv_sector][reg][fuels.index(fuel)][yr_list.index(2100)],
-                                                int_scaling[yr_list.index(2030)], 
-                                                    int_scaling[yr_list.index(2050)], 
-                                                    int_scaling[yr_list.index(2100)]
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2030)], 
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2050)], 
+                                                int_scaling[i_int_scen][spc_map_GAINS[spc_here]][reg][inv_sector][fuel][yr_list.index(2100)]
                                                ])
                             
                             # and export scaling

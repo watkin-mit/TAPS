@@ -41,7 +41,7 @@ def df_to_dict(df): # num_cols = the number of category columns before the data
     
     df = df.fillna(0) # some places with zeroes were exported as blanks
     nested_dict = {}
-    for keys, v in df.groupby(list(df.columns[:i_yr]))[df.columns[:i_yr]]:
+    for keys, v in df.groupby(list(df.columns[:i_yr]))[df.columns]:
         d = nested_dict   # restart at root
         val = v.iloc[:,i_yr:].to_numpy().flatten() # extract the time series
         for k in keys:
@@ -124,6 +124,11 @@ i_yr_to_scale = [list(CEDS_scaling_file.columns).index(str(yr))
 
 yr_out = [ref_yr]+yr_to_scale
 
+
+# %%
+# ignore unneeded warning as recommended here: https://github.com/marcomusy/vedo/issues/470
+from warnings import simplefilter
+simplefilter(action='ignore', category=DeprecationWarning)
 
 # %%
 
